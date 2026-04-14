@@ -1,0 +1,28 @@
+---
+title: "Construindo Aplicações Performáticas com Next.js 15 e App Router"
+description: "Uma análise técnica sobre como os novos Server Components e a arquitetura do App Router otimizam o tempo de carregamento (TTFB) e o SEO das aplicações modernas."
+date: "2026-04-14"
+tags: ["Next.js", "Performance", "React", "Arquitetura"]
+---
+
+# A Evolução do React na Web
+
+Nos últimos anos, a construção de aplicações ricas para a web tem passado por verdadeiras transformações arquiteturais. O *Next.js 15* na sua versão **App Router** consolida de vez a transição para um renderizador centralizado no servidor (RSC).
+
+## Highlighting de Sintaxe e MDX
+
+Aqui está um exemplo de como gerenciamos rotas estáticas na nossa infraestrutura para garantir indexações em milissegundos, gerando as rotas durante o pipeline de CI/CD:
+
+```typescript
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
+  
+  return posts.map((post) => ({
+    slug: post.slug,
+  }));
+}
+```
+
+Nesta abordagem, o conteúdo já desce serializado no DOM, acompanhado de HTML semântico. Retiramos todo o overhead do cliente que antes existia para parsear sintaxes densas de Markdown por livrarias JavaScript client-side pesadas.
+
+O poder em utilizar a plataforma para parseamento *Server-side* é indiscutível quando o objetivo final atinge **100/100 na métrica do Lighthouse**. E este repositório serve exatamente como o playground fundamental que venho utilizando em arquiteturas escaláveis corporativas.
