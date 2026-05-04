@@ -3,18 +3,24 @@
 import { useEffect, useRef } from "react"
 
 /**
- * Interactive Dot Wave Grid — Antigravity-style ripple/pulse.
- * Dots react to mouse proximity with wave displacement and glow.
+ * Organic Dot-Wave — DevBlog version.
+ * On light backgrounds: dots are INVISIBLE by default,
+ * only appearing near the cursor for a clean, ghost-like reveal.
  */
 
-const DOT_SPACING = 28
-const DOT_BASE_RADIUS = 1.5
-const DOT_MAX_RADIUS = 4
-const MOUSE_RADIUS = 200
-const WAVE_SPEED = 0.03
-const WAVE_AMPLITUDE = 12
-const BASE_COLOR = { r: 96, g: 165, b: 250 }
-const GLOW_COLOR = { r: 168, g: 139, b: 250 }
+const DOT_SPACING = 24
+const DOT_BASE_RADIUS = 1.2
+const DOT_MAX_RADIUS = 5.5
+const MOUSE_RADIUS = 320
+const WAVE_SPEED = 0.025
+const WAVE_AMPLITUDE = 24
+
+const COLORS = [
+  { r: 59, g: 130, b: 246 },   // blue-500
+  { r: 99, g: 102, b: 241 },   // indigo-500
+  { r: 139, g: 92, b: 246 },   // violet-500
+  { r: 14, g: 165, b: 233 },   // sky-500
+]
 
 interface Dot {
   baseX: number
@@ -23,6 +29,7 @@ interface Dot {
   y: number
   radius: number
   alpha: number
+  colorIdx: number
 }
 
 export default function ParticleField() {
@@ -50,7 +57,8 @@ export default function ParticleField() {
             x: col * DOT_SPACING,
             y: row * DOT_SPACING,
             radius: DOT_BASE_RADIUS,
-            alpha: 0.15,
+            alpha: 0,
+            colorIdx: (col + row) % COLORS.length,
           })
         }
       }
@@ -68,7 +76,6 @@ export default function ParticleField() {
     const handleMouseMove = (e: MouseEvent) => {
       mouse.current = { x: e.clientX, y: e.clientY }
     }
-
     window.addEventListener("mousemove", handleMouseMove)
 
     const animate = () => {
@@ -77,35 +84,59 @@ export default function ParticleField() {
 
       const mx = mouse.current.x
       const my = mouse.current.y
+      const t = time.current
 
       for (const dot of dots.current) {
         const dx = dot.baseX - mx
         const dy = dot.baseY - my
         const dist = Math.sqrt(dx * dx + dy * dy)
 
-        const influence = Math.max(0, 1 - dist / MOUSE_RADIUS)
+        const raw = Math.max(0, 1 - dist / MOUSE_RADIUS)
+        const influence = raw * raw * (3 - 2 * raw)
 
-        const waveOffset = Math.sin(dist * 0.04 - time.current * 4) * WAVE_AMPLITUDE * influence
+        // Skip dots with zero influence for performance
+        if (influence < 0.01) continue
+
+        const wave1 = Math.sin(dist * 0.025 - t * 3.5) * WAVE_AMPLITUDE
+        const wave2 = Math.sin(dist * 0.045 - t * 5.0) * WAVE_AMPLITUDE * 0.4
+        const wave3 = Math.cos(dist * 0.015 - t * 2.0) * WAVE_AMPLITUDE * 0.25
+        const totalWave = (wave1 + wave2 + wave3) * influence
+
         const angle = Math.atan2(dy, dx)
+        dot.x = dot.baseX + Math.cos(angle) * totalWave
+        dot.y = dot.baseY + Math.sin(angle) * totalWave
 
-        dot.x = dot.baseX + Math.cos(angle) * waveOffset
-        dot.y = dot.baseY + Math.sin(angle) * waveOffset
-        dot.radius = DOT_BASE_RADIUS + (DOT_MAX_RADIUS - DOT_BASE_RADIUS) * influence
-        dot.alpha = 0.12 + 0.88 * influence
+        const sizePulse = 1 + Math.sin(t * 2 + dist * 0.02) * 0.15
+        dot.radius = (DOT_BASE_RADIUS + (DOT_MAX_RADIUS - DOT_BASE_RADIUS) * influence) * sizePulse
 
-        const r = Math.round(BASE_COLOR.r + (GLOW_COLOR.r - BASE_COLOR.r) * influence)
-        const g = Math.round(BASE_COLOR.g + (GLOW_COLOR.g - BASE_COLOR.g) * influence)
-        const b = Math.round(BASE_COLOR.b + (GLOW_COLOR.b - BASE_COLOR.b) * influence)
+        // Alpha: fully transparent at edge, visible near cursor
+        dot.alpha = influence * 0.85
+
+        const ci = dot.colorIdx
+        const nextCi = (ci + 1) % COLORS.length
+        const blend = (Math.sin(t + dist * 0.01) + 1) * 0.5
+        const c = COLORS[ci]
+        const nc = COLORS[nextCi]
+        const r = Math.round(c.r + (nc.r - c.r) * blend)
+        const g = Math.round(c.g + (nc.g - c.g) * blend)
+        const b = Math.round(c.b + (nc.b - c.b) * blend)
 
         ctx.beginPath()
         ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${dot.alpha})`
         ctx.fill()
 
-        if (influence > 0.3) {
+        if (influence > 0.2) {
           ctx.beginPath()
-          ctx.arc(dot.x, dot.y, dot.radius * 3, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${influence * 0.08})`
+          ctx.arc(dot.x, dot.y, dot.radius * 3.5, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${influence * 0.05})`
+          ctx.fill()
+        }
+
+        if (influence > 0.65) {
+          ctx.beginPath()
+          ctx.arc(dot.x, dot.y, dot.radius * 0.35, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${influence * 0.7})`
           ctx.fill()
         }
       }
