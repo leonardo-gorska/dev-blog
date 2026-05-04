@@ -3,52 +3,58 @@
 import { useEffect, useRef } from "react"
 
 /**
- * Organic Blob Field — DevBlog version (light bg).
- * Ghost-like blobs that only appear near the cursor.
+ * Flow Field Particles — DevBlog (light bg) version.
+ * Particles flow organically through noise, cursor creates swirl.
+ * No trails on light background — clean clear per frame.
  */
 
-function hash(x: number, y: number): number {
-  let n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453
-  return n - Math.floor(n)
-}
-
-function smoothNoise(x: number, y: number): number {
-  const ix = Math.floor(x)
-  const iy = Math.floor(y)
-  const fx = x - ix
-  const fy = y - iy
-  const sx = fx * fx * (3 - 2 * fx)
-  const sy = fy * fy * (3 - 2 * fy)
-  const a = hash(ix, iy)
-  const b = hash(ix + 1, iy)
-  const c = hash(ix, iy + 1)
-  const d = hash(ix + 1, iy + 1)
-  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy
-}
+const F2 = 0.5 * (Math.sqrt(3) - 1)
+const G2 = (3 - Math.sqrt(3)) / 6
+const perm = new Uint8Array(512)
+const grad2 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]]
+;(() => {
+  const p = new Uint8Array(256)
+  for (let i = 0; i < 256; i++) p[i] = i
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[p[i], p[j]] = [p[j], p[i]]
+  }
+  for (let i = 0; i < 512; i++) perm[i] = p[i & 255]
+})()
 
 function noise2D(x: number, y: number): number {
-  let val = 0
-  val += smoothNoise(x, y) * 0.5
-  val += smoothNoise(x * 2, y * 2) * 0.25
-  val += smoothNoise(x * 4, y * 4) * 0.125
-  return val
+  const s = (x + y) * F2
+  const i = Math.floor(x + s), j = Math.floor(y + s)
+  const t = (i + j) * G2
+  const x0 = x - (i - t), y0 = y - (j - t)
+  const i1 = x0 > y0 ? 1 : 0, j1 = x0 > y0 ? 0 : 1
+  const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2
+  const x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2
+  const ii = i & 255, jj = j & 255
+  let n0 = 0, n1 = 0, n2 = 0
+  let t0 = 0.5 - x0*x0 - y0*y0
+  if (t0 > 0) { t0 *= t0; const gi = perm[ii+perm[jj]]%8; n0 = t0*t0*(grad2[gi][0]*x0+grad2[gi][1]*y0) }
+  let t1 = 0.5 - x1*x1 - y1*y1
+  if (t1 > 0) { t1 *= t1; const gi = perm[ii+i1+perm[jj+j1]]%8; n1 = t1*t1*(grad2[gi][0]*x1+grad2[gi][1]*y1) }
+  let t2 = 0.5 - x2*x2 - y2*y2
+  if (t2 > 0) { t2 *= t2; const gi = perm[ii+1+perm[jj+1]]%8; n2 = t2*t2*(grad2[gi][0]*x2+grad2[gi][1]*y2) }
+  return 70 * (n0 + n1 + n2)
 }
 
-interface Blob {
-  x: number
-  y: number
-  baseRadius: number
-  color: string
-  speed: number
-  noiseOffsetX: number
-  noiseOffsetY: number
-  opacity: number
-}
+interface Particle { x: number; y: number; vx: number; vy: number; hue: number }
+
+const COUNT = 1200
+const NOISE_SCALE = 0.003
+const NOISE_SPEED = 0.0008
+const SPEED = 0.6
+const CURSOR_R = 180
+const CURSOR_F = 0.35
 
 export default function ParticleField() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const mouse = useRef({ x: -1000, y: -1000 })
   const smoothMouse = useRef({ x: -1000, y: -1000 })
+  const particles = useRef<Particle[]>([])
   const animationId = useRef<number>(0)
   const time = useRef(0)
 
@@ -58,9 +64,17 @@ export default function ParticleField() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    const make = (): Particle => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: 0, vy: 0,
+      hue: 220 + Math.random() * 60,
+    })
+
     const resize = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
+      particles.current = Array.from({ length: COUNT }, make)
     }
     resize()
     window.addEventListener("resize", resize)
@@ -70,60 +84,54 @@ export default function ParticleField() {
     }
     window.addEventListener("mousemove", handleMouseMove)
 
-    const blobs: Blob[] = [
-      { x: -1000, y: -1000, baseRadius: 220, color: "79, 70, 229", speed: 0.3, noiseOffsetX: 0, noiseOffsetY: 100, opacity: 0.04 },
-      { x: -1000, y: -1000, baseRadius: 160, color: "99, 102, 241", speed: 0.5, noiseOffsetX: 50, noiseOffsetY: 200, opacity: 0.05 },
-      { x: -1000, y: -1000, baseRadius: 110, color: "59, 130, 246", speed: 0.7, noiseOffsetX: 100, noiseOffsetY: 300, opacity: 0.06 },
-      { x: -1000, y: -1000, baseRadius: 70, color: "139, 92, 246", speed: 0.85, noiseOffsetX: 150, noiseOffsetY: 400, opacity: 0.08 },
-    ]
-
     const animate = () => {
-      time.current += 0.004
-      const lerpFactor = 0.03
-      smoothMouse.current.x += (mouse.current.x - smoothMouse.current.x) * lerpFactor
-      smoothMouse.current.y += (mouse.current.y - smoothMouse.current.y) * lerpFactor
+      time.current += NOISE_SPEED
+      smoothMouse.current.x += (mouse.current.x - smoothMouse.current.x) * 0.05
+      smoothMouse.current.y += (mouse.current.y - smoothMouse.current.y) * 0.05
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      const t = time.current
+
       const mx = smoothMouse.current.x
       const my = smoothMouse.current.y
+      const t = time.current
 
-      for (const blob of blobs) {
-        const blobLerp = blob.speed * 0.04
-        blob.x += (mx - blob.x) * blobLerp
-        blob.y += (my - blob.y) * blobLerp
+      for (const p of particles.current) {
+        const angle = noise2D(p.x * NOISE_SCALE + t, p.y * NOISE_SCALE + t) * Math.PI * 4
+        p.vx += Math.cos(angle) * SPEED * 0.1
+        p.vy += Math.sin(angle) * SPEED * 0.1
 
-        const segments = 72
-        ctx.beginPath()
-
-        for (let i = 0; i <= segments; i++) {
-          const angle = (i / segments) * Math.PI * 2
-          const nx = Math.cos(angle) * 2 + blob.noiseOffsetX + t * 0.8
-          const ny = Math.sin(angle) * 2 + blob.noiseOffsetY + t * 0.6
-          const noiseVal = noise2D(nx, ny)
-          const undulation = Math.sin(angle * 3 + t * 2) * 0.08 +
-                            Math.sin(angle * 5 - t * 1.5) * 0.05 +
-                            Math.cos(angle * 2 + t * 3) * 0.06
-          const radiusDeform = 1 + (noiseVal - 0.5) * 0.5 + undulation
-          const r = blob.baseRadius * radiusDeform
-          const px = blob.x + Math.cos(angle) * r
-          const py = blob.y + Math.sin(angle) * r
-          if (i === 0) ctx.moveTo(px, py)
-          else ctx.lineTo(px, py)
+        const dx = p.x - mx, dy = p.y - my
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < CURSOR_R && dist > 1) {
+          const force = (1 - dist / CURSOR_R) * CURSOR_F
+          const sa = Math.atan2(dy, dx) + Math.PI * 0.5
+          p.vx += Math.cos(sa) * force
+          p.vy += Math.sin(sa) * force
         }
 
-        ctx.closePath()
-        const gradient = ctx.createRadialGradient(blob.x, blob.y, 0, blob.x, blob.y, blob.baseRadius * 1.3)
-        gradient.addColorStop(0, `rgba(${blob.color}, ${blob.opacity * 1.2})`)
-        gradient.addColorStop(0.5, `rgba(${blob.color}, ${blob.opacity})`)
-        gradient.addColorStop(1, `rgba(${blob.color}, 0)`)
-        ctx.fillStyle = gradient
+        p.vx *= 0.92
+        p.vy *= 0.92
+        const spd = Math.sqrt(p.vx*p.vx + p.vy*p.vy)
+        if (spd > 2) { p.vx = (p.vx/spd)*2; p.vy = (p.vy/spd)*2 }
+
+        p.x += p.vx
+        p.y += p.vy
+
+        const ci = dist < CURSOR_R ? (1 - dist / CURSOR_R) : 0
+        const size = 1 + ci * 1.5
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2)
+        ctx.fillStyle = `hsla(${p.hue}, 60%, 55%, ${0.15 + ci * 0.45})`
         ctx.fill()
+
+        if (p.x < -20 || p.x > canvas.width+20 || p.y < -20 || p.y > canvas.height+20) {
+          Object.assign(p, make())
+        }
       }
 
       animationId.current = requestAnimationFrame(animate)
     }
-
     animate()
 
     return () => {
@@ -143,7 +151,7 @@ export default function ParticleField() {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        zIndex: 1,
+        zIndex: 0,
       }}
     />
   )
