@@ -2,6 +2,8 @@
 
 Um repositório de ponta focado em indexação técnica (Technical SEO) e alta performance. Este projeto foi concebido para hospedar conteúdo denso sobre Engenharia de Software utilizando as práticas e arquiteturas web mais robustas vigentes.
 
+🟢 **[Live Demo](https://dev-blog-ten-rho.vercel.app)** — Deployed on Vercel
+
 ## Arquitetura e Stack
 
 - **Framework Core**: Next.js 15 (App Router).
