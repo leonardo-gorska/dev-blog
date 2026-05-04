@@ -35,7 +35,7 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
       },
       content,
     }
-  } catch (e) {
+  } catch {
     return null
   }
 }

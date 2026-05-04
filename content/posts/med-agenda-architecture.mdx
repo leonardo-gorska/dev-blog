@@ -1,0 +1,49 @@
+---
+title: "Construindo a MedAgenda: Como evitei conflitos de dados em agendamentos críticos com Spring Boot"
+date: "2026-04-29"
+tags: ["Java", "Spring Boot", "Arquitetura", "Backend"]
+description: "Um mergulho profundo nas decisões de engenharia que moldaram a API da MedAgenda, com foco em concorrência, JWT Stateless e Clean Architecture."
+---
+
+Quando comecei a arquitetar a **MedAgenda**, o objetivo nunca foi fazer apenas mais um CRUD. O cenário clínico do mundo real apresenta um problema clássico de concorrência: *o que acontece se dois pacientes tentarem reservar o mesmo horário exato de um médico ao mesmo tempo?*
+
+Neste artigo, vou dissecar as decisões arquiteturais que tomei usando **Java 21 e Spring Boot 3** para garantir uma API resiliente e "Zero-Conflito".
+
+## 1. O Desafio da Sobrescrita de Dados
+
+Em sistemas monolíticos mal desenhados, a validação de horários geralmente acontece na memória. O servidor puxa as consultas do banco, verifica se o horário está livre e, se estiver, salva a nova. Mas entre a *leitura* e a *escrita*, há um intervalo de tempo (Race Condition). Se a escala subir, dois threads podem ler o horário como "livre" e ambos gravarem, resultando em médicos sobrecarregados.
+
+Para resolver isso, desci a validação para a camada mais estrita possível: **o Repositório (Data JPA)**.
+
+## 2. A Matemática do Conflito
+
+Em vez de trazer dados para o backend processar, criei queries matemáticas nativas que bloqueiam o problema no berço. A lógica matemática para detectar sobreposição temporal é elegante:
+
+```java
+// O conflito existe se: 
+// (NovoFim > AtualInicio) E (NovoInicio < AtualFim)
+
+@Query("SELECT COUNT(a) > 0 FROM Appointment a WHERE a.doctor.id = :doctorId " +
+       "AND a.endTime > :newStartTime AND a.startTime < :newEndTime")
+boolean existsOverlappingAppointment(@Param("doctorId") Long doctorId,
+                                     @Param("newStartTime") LocalDateTime newStartTime,
+                                     @Param("newEndTime") LocalDateTime newEndTime);
+```
+
+Se o `COUNT` retornar verdadeiro, a camada de Serviço aborta imediatamente a transação em frações de milissegundos, lançando uma exceção customizada (`ConflictException`), que o nosso *ControllerAdvice* intercepta e converte em um elegante `409 Conflict` para o Front-end. 
+
+## 3. Segurança Stateless com JWT
+
+Sistemas clínicos lidam com dados sensíveis (LGPD). Por isso, abandonei o uso de Sessions de servidor (que dificultam a escalabilidade em nuvem) e optei por uma abordagem 100% **Stateless com JSON Web Tokens (JWT)**.
+
+Utilizando o `Auth0 Java-JWT` acoplado ao Spring Security, construí uma esteira de filtros:
+1. O Front-end bate na rota `/auth/login`.
+2. O Spring verifica o hash da senha usando `BCryptPasswordEncoder`.
+3. Um Token JWT assinado com uma chave RSA privada é gerado, contendo os `roles` (Admin, Paciente, Médico) dentro do payload.
+4. Nas rotas privadas (`/api/v1/appointments`), o `JwtAuthenticationFilter` intercepta o header e, caso seja inválido ou expirado, joga o usuário fora antes mesmo dele encostar na Controller.
+
+## 4. Conclusão
+
+Construir a MedAgenda consolidou a minha crença no **Ecosystem Spring**. Ele nos obriga a separar responsabilidades (Controllers, Services, Repositories), o que facilita imensamente na hora de criar testes unitários (usando Mockito) para cobrir exatamente esses casos críticos de concorrência que discuti acima.
+
+Se você está recrutando ou montando times para trabalhar com Java e microsserviços, sinta-se à vontade para explorar o código fonte completo desta API lá no meu [GitHub](https://github.com/leonardo-gorska/med-agenda) e testar a interface do portfólio. Vamos conversar!

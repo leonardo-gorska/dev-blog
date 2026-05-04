@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
@@ -6,7 +7,7 @@ import { Box, Heading, Text, Code, Kbd, Separator, Link } from "@chakra-ui/react
 import React from "react";
 
 // Theming custom components using Chakra UI v3
-const components: Record<string, React.ReactNode> = {
+const components: Record<string, React.ComponentType<any>> = {
   h1: (props: any) => <Heading as="h1" size="2xl" mt={8} mb={4} {...props} />,
   h2: (props: any) => <Heading as="h2" size="xl" mt={8} mb={4} {...props} />,
   h3: (props: any) => <Heading as="h3" size="lg" mt={6} mb={3} {...props} />,
