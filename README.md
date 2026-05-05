@@ -1,8 +1,13 @@
 # Dev Blog Architecture (Next.js 15 & MDX)
 
-Um repositório de ponta focado em indexação técnica (Technical SEO) e alta performance. Este projeto foi concebido para hospedar conteúdo denso sobre Engenharia de Software utilizando as práticas e arquiteturas web mais robustas vigentes.
+![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=for-the-badge&logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![MDX](https://img.shields.io/badge/MDX-1B1F24?style=for-the-badge&logo=mdx&logoColor=white)
+![Chakra UI](https://img.shields.io/badge/Chakra_UI_v3-319795?style=for-the-badge&logo=chakraui&logoColor=white)
 
 🟢 **[Live Demo](https://dev-blog-ten-rho.vercel.app)** — Deployed on Vercel
+
+Um repositório de ponta focado em indexação técnica (Technical SEO) e alta performance. Este projeto foi concebido para hospedar conteúdo denso sobre Engenharia de Software utilizando as práticas e arquiteturas web mais robustas vigentes.
 
 ## Arquitetura e Stack
 
