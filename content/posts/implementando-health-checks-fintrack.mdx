@@ -1,0 +1,52 @@
+---
+title: "Kubernetes Ready: Como Implementei Health Checks e Readiness Probes no Fintrack"
+date: "2026-05-10"
+description: "Um mergulho técnico na implementação de liveness e readiness probes utilizando Clean Architecture para garantir Alta Disponibilidade."
+tags: ["DevOps", "Backend", "Java", "Kubernetes", "Clean Architecture"]
+author: "Leonardo Gorska"
+---
+
+# A Importância da Resiliência no Backend
+
+Aplicações modernas em nuvem não podem simplesmente "estar rodando". Elas precisam provar para a infraestrutura que estão saudáveis e prontas para receber tráfego. No contexto de microsserviços e contêineres, orquestradores como o Kubernetes dependem de sinais claros para não enviar requisições para pods que estão travados ou inicializando.
+
+Hoje, dediquei parte da minha agenda para resolver o PR **#5** do [Fintrack](https://github.com/leonardo-gorska/fintrack), abordando um débito técnico essencial: **Health Checks e Readiness Probes**.
+
+## O Padrão: Liveness vs Readiness
+
+Existem duas perguntas fundamentais que nossa aplicação precisa responder à infraestrutura:
+
+1. **Liveness (Estou Vivo?):** A aplicação travou em um *deadlock*? Se a resposta for não, o orquestrador reinicia o contêiner.
+2. **Readiness (Estou Pronto?):** A conexão com o banco de dados e o cache (Redis/RabbitMQ) já foi estabelecida? Se não, a aplicação não deve receber tráfego de usuários, pois vai gerar erros `500 Internal Server Error`.
+
+## Implementação na Clean Architecture
+
+Para manter a aderência à Arquitetura Limpa, não vazamos regras de infraestrutura diretamente na nossa regra de negócios. Criamos portas (`Ports`) para que a aplicação informe seu status, e os adaptadores (`Adapters`) HTTP expõem os endpoints `/health/liveness` e `/health/readiness`.
+
+### A Solução
+Em vez de depender de pacotes massivos que acoplam a aplicação, utilizamos Injeção de Dependência para monitorar os drivers:
+- **Database Probe:** Tenta um `SELECT 1` leve e rápido.
+- **Cache Probe:** Envia um `PING` ao Redis.
+
+```typescript
+// Exemplo arquitetural de verificação limpa
+export class ReadinessProbeAdapter {
+  constructor(private readonly dbConnection: DatabaseConnection, private readonly cache: CacheClient) {}
+
+  async check(): Promise<boolean> {
+    try {
+      const dbStatus = await this.dbConnection.ping();
+      const cacheStatus = await this.cache.ping();
+      return dbStatus && cacheStatus;
+    } catch (error) {
+      return false;
+    }
+  }
+}
+```
+
+## Conclusão
+
+Manter o código é tão importante quanto escrevê-lo. Ao isolar a lógica de health check em seus respectivos adaptadores, garantimos que a nossa API do Fintrack escale em qualquer cluster moderno de forma resiliente, sem perder o isolamento de camadas que a *Clean Architecture* exige.
+
+Quer conferir o código fonte detalhado? Acesse o [PR #5 no GitHub](https://github.com/leonardo-gorska/fintrack/pull/5).

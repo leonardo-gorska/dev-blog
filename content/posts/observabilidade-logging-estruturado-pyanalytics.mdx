@@ -1,0 +1,77 @@
+---
+title: "Observabilidade Além do Print: Implementando Logging Estruturado no PyAnalytics"
+date: "2026-05-14"
+description: "Um mergulho técnico em como transformar logs confusos em telemetria útil utilizando JSON e estruturação de dados no ecossistema Python."
+tags: ["Python", "Observabilidade", "Logging", "Backend", "Clean Architecture"]
+author: "Leonardo Gorska"
+---
+
+# O Problema do Log Cego
+
+No desenvolvimento de sistemas escaláveis, existe uma máxima: **você não consegue gerenciar o que não consegue medir.** Muitos desenvolvedores ainda dependem de logs de texto simples (strings) que, embora legíveis para humanos, são quase impossíveis de serem processados por máquinas ou ferramentas de análise de logs (como Elastic Stack ou Datadog).
+
+Hoje, no repositório [PyAnalytics](https://github.com/leonardo-gorska/pyanalytics), atacamos o **PR #6** para implementar **Logging Estruturado**. Sair do `print()` ou do log de texto comum para o JSON é o primeiro passo para uma observabilidade de nível sênior.
+
+## Por que Logging Estruturado?
+
+Imagine que sua aplicação está processando 1.000 requisições por segundo e um erro ocorre. Se o seu log for:
+`2026-05-11 10:00:00 - ERROR - Falha ao processar pagamento para o usuario 123`
+
+Para buscar todos os erros desse usuário, você precisará de Regex complexos. Agora, se o log for **estruturado (JSON)**:
+
+```json
+{
+  "timestamp": "2026-05-11T10:00:00Z",
+  "level": "ERROR",
+  "message": "Payment processing failed",
+  "user_id": 123,
+  "service": "billing-service",
+  "trace_id": "a1-b2-c3-d4"
+}
+```
+
+Agora, qualquer ferramenta de busca consegue filtrar por `user_id` de forma instantânea.
+
+## Implementação Técnica no PyAnalytics
+
+Para manter a aderência à **Clean Architecture**, isolamos o provedor de logging. A aplicação não deve saber *como* o log é escrito, apenas *o que* deve ser logado.
+
+### A Camada de Abstração
+
+Criamos um `LogProvider` que encapsula o comportamento do `structlog` (uma das bibliotecas mais robustas para Python nesse quesito).
+
+```python
+# Exemplo de implementação no PyAnalytics
+import structlog
+
+logger = structlog.get_logger()
+
+def process_analytics_event(event_data):
+    try:
+        # Lógica de processamento
+        logger.info("event_processed", 
+                    event_id=event_data['id'], 
+                    duration_ms=45,
+                    status="success")
+    except Exception as e:
+        logger.error("event_processing_failed", 
+                     error=str(e), 
+                     event_id=event_data.get('id'))
+```
+
+## Ganhos Reais
+
+Ao finalizar o **PR #6**, o PyAnalytics agora oferece:
+1. **Rastreabilidade:** Cada log carrega metadados do contexto da execução.
+2. **Performance:** Logs estruturados reduzem o overhead de parsing em ferramentas de monitoramento.
+3. **Escalabilidade:** Estamos prontos para integrar com agregadores de logs de mercado.
+
+## Conclusão
+
+Observabilidade não é sobre ter muitos logs, é sobre ter os logs certos no formato certo. Ao implementar logging estruturado, transformamos "ruído" em "inteligência de dados".
+
+Quer ver a implementação completa? Confira o [PR #6 no GitHub](https://github.com/leonardo-gorska/pyanalytics/pull/6).
+
+---
+
+**Nota de Publicação:** Este artigo deve ser publicado na **Quinta-feira, às 14:30**, conforme o cronograma estratégico. 🚀
