@@ -1,0 +1,36 @@
+---
+title: "Arquitetura LogiTrack: Escalando APIs de Logística com FastAPI e Python"
+description: "Como estruturei o LogiTrack para garantir alta performance e escalabilidade no rastreamento de entregas usando FastAPI, Docker e boas práticas de arquitetura limpa."
+date: "2026-05-10"
+tags: ["FastAPI", "Python", "Docker", "Backend"]
+---
+
+# A Necessidade de Performance em Logística
+
+Em sistemas de logística e rastreamento, a velocidade de resposta da API e a capacidade de suportar alta concorrência são fundamentais. Quando comecei a desenhar o **LogiTrack**, sabia que precisava de um framework backend que unisse a simplicidade e a expressividade do Python com uma performance equiparável à do Go ou Node.js. A escolha natural foi o **FastAPI**.
+
+## Por que FastAPI?
+
+FastAPI se destaca por ser construído sob padrões modernos do Python, como *type hints* (Pydantic) e concorrência assíncrona nativa (Starlette). Isso traz dois grandes benefícios:
+
+1. **Validação Automática:** O Pydantic garante que os payloads que entram na API estejam rigorosamente tipados e validados, evitando erros comuns e garantindo a integridade dos dados de rastreamento.
+2. **Documentação Integrada:** A geração automática de Swagger/OpenAPI economiza um tempo precioso e facilita a integração com equipes de front-end.
+
+## Containerização com Docker
+
+A escalabilidade do código não é nada sem uma infraestrutura que permita escalar de forma eficiente. O LogiTrack é totalmente containerizado.
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Essa abordagem garante que a API rode exatamente da mesma forma no meu ambiente de desenvolvimento local e no servidor de produção, além de permitir o deploy ágil em serviços gerenciados na nuvem.
+
+## Conclusão
+
+Construir o LogiTrack me permitiu consolidar práticas avançadas de desenvolvimento backend. O ecossistema em torno do FastAPI, aliado ao Docker, fornece a base perfeita para microsserviços modernos, de alta disponibilidade e fáceis de manter. A engenharia de software não é apenas sobre fazer funcionar, mas sobre garantir que o sistema possa crescer e evoluir de maneira sustentável.
